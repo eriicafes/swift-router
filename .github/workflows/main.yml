@@ -39,10 +39,6 @@ jobs:
 
       - name: Create Release Pull Request
         id: changesets
-        uses: changesets/action@v1
+        uses: changesets/action@v2
         with:
-          publish: npx changeset tag
-
-      - name: Push Release Tags
-        if: steps.changesets.outputs.published == 'true'
-        run: git push --follow-tags
+          publish-script: npx changeset git-tag
