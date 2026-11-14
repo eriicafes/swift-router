@@ -93,10 +93,9 @@ Use `Router` and `TabRouter` as observable state. In views, prefer local `@Binda
 
 Create the router as state at the root of the feature or app, then add it as environment to the immediate view that should expose it to subviews.
 
-For tabbed apps, let stack views access the tab router itself from environment. If needed, you can also pass the stack router as environment to the matching tab item.
+For tabbed apps, pass each stack router as environment to its tab item, so stack views can read `Router<UsersRoute>` directly. Views that switch tabs or use shared tab state can read the `TabRouter` from environment instead. Either works; use whichever the view needs.
 
-Prefer defining app routes in `Routes.swift`, and putting screens in a `Screens/` directory.
-Prefer a root-level `Router.swift` file for all route/tab/router type wiring. Compose the actual app views in `ContentView` or the app's view entry point.
+Prefer a root-level `Routes.swift` file for all route, tab, and URL conformance types, and putting screens in a `Screens/` directory. Routers themselves are created in views, so compose them in `ContentView` or the app's view entry point.
 Group screens by navigation area. For tabs, put the tab entry view directly under `Screens/`, such as `Screens/UsersTabView.swift`. If the tab has a nested stack, put pushed stack screens in a matching directory, such as `Screens/Users/UsersListView.swift` and `Screens/Users/UsersDetailView.swift`. Tabs without a nested stack can stay as a single file directly under `Screens/`. Use the same directory pattern for non-tab stack hierarchies.
 
 ```swift
@@ -134,11 +133,11 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: $router.tab) {
             Tab("Home", value: AppTab.home) {
-                HomeView()
+                HomeTabView()
             }
 
             Tab("Users", value: AppTab.users) {
-                UsersView()
+                UsersTabView()
                     .environment(router.users)
             }
         }
@@ -148,8 +147,8 @@ struct ContentView: View {
 ```
 
 ```swift
-// Screens/UsersView.swift
-struct UsersView: View {
+// Screens/UsersTabView.swift
+struct UsersTabView: View {
     @Environment(Router<UsersRoute>.self) private var router
 
     var body: some View {
@@ -173,8 +172,8 @@ struct UsersView: View {
 Router state can drive app state beyond navigation, like sheets.
 
 ```swift
-// Screens/HomeView.swift
-struct HomeView: View {
+// Screens/HomeTabView.swift
+struct HomeTabView: View {
     @Environment(TabRouter<AppTab>.self) private var router
 
     var body: some View {
@@ -200,8 +199,8 @@ For stack routes, use `FromURLRoute` or `IntoURLRoute` when only one direction i
 
 `screen` callbacks use a result builder, so a match can return one route or multiple routes.
 Returning multiple routes from a match only matters when `hydrate` is replacing the stack, or when hydrate runs on an empty stack.
-Use `Self.case(...)` in the result builder callbacks.
-Use the `(RouteURLInput, rest: String)` screen overload for path-prefix or catch-all parsing.
+In the result builder callbacks (the `screen` overloads that take a closure returning routes), use `Self.case(...)`. `screen(root:)` and `route.update` return no routes, so they don't need it.
+Use the screen overload whose closure takes `(RouteURLInput, String)` for path-prefix or catch-all parsing; the second argument is the unmatched rest of the path.
 Use `screen(..., join:)` to delegate to another route type; set `fallback: true` only when the parent route should still match if the child route does not.
 
 ```swift
@@ -364,7 +363,9 @@ extension UsersRoute: IntoURLRoute {
 }
 ```
 
-Routers can also do string navigation with `push(path:)`, `go(path:)`, and `replace(path:)`.
+Generate the current URL with `router.string()` on a stack router or `tabRouter.string()` on a tab router.
+
+Routers can also do string navigation with `push(path:)`, `go(path:)`, and `replace(path:)`. These and `hydrate` return `false` when the path matches no route; check it for string navigation, and ignore it where an unknown link should simply do nothing, such as in `.onOpenURL`.
 
 Use `hydrate(url:)` or `hydrate(path:)` for deep links. Custom schemes treat the URL host as part of the route path; universal links use the URL path and query.
 Use `hydrate(path:replace: true)` or `hydrate(url:replace: true)` when a deep link should replace the current stack instead of pushing onto it.
